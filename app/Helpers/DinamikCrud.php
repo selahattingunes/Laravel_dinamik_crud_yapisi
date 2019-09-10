@@ -9,13 +9,16 @@
 namespace App\Helpers;
 
 
+use http\Env\Request;
+
 class DinamikCrud
 {
     private $tableEloquent;
 
-    public $SqlSelect=["query"=>["*"],"table"=>null];
-    public $SqlOrder=["column"=>"id","type"=>"asc"];
-    public $SqlSearch=["column"=>"id","value"=>""];
+    public $SqlSelect=["select"=>["*"],"table"=>null];
+    public $SqlOrderBys=[];
+    public $SqlSearchWheres=[];
+    public $SqlWheres=[];
     public $SqlPaginate=0;
     public $Model;
     public $data;
@@ -28,11 +31,28 @@ class DinamikCrud
         return $this->tableEloquent;
     }
 
+    private function tableWhereToTable($table){
+        foreach ($this->SqlWheres as $column => $value){
+            $table = $table->where($column,$value);
+        }return $table;
+    }
+    private function tableSearchWhereToTable($table){
+        foreach ($this->SqlSearchWheres as $column => $value){
+            $table = $table->where($column,"like","%".$value."%");
+        }return $table;
+    }
+    private function tableOrderByToTable($table){
+        foreach ($this->SqlOrderBys as $column => $type){
+            $table = $table->orderBy($column,$type);
+        }return $table;
+    }
+
     public function modelGet(){
         $table = $this->Table()
-            ::select($this->SqlSelect["query"])
-            ->where($this->SqlSearch["column"],"like","%".$this->SqlSearch["value"]."%")
-            ->orderBy($this->SqlOrder["column"],$this->SqlOrder["type"]);
+            ::select($this->SqlSelect["select"]);
+            $table = $this->tableWhereToTable($table);
+            $table = $this->tableSearchWhereToTable($table);
+            $table = $this->tableOrderByToTable($table);
         return $table;
     }
 
@@ -40,14 +60,35 @@ class DinamikCrud
         $this->Model = isset($intended_modal)?$intended_modal:$this->ModelGet();
     }
 
-    public function createData($resources){
+    public function createDataAndGet($resources){
         $this->data[$resources]=[
             "items"=>$this->Model->paginate($this->SqlPaginate),
             "table"=>$this->Select["table"]
         ];
     }
 
-    public function pageView($view=null){
+    public function createDataAndFirst($resources){
+        $this->data[$resources]=[
+            "items"=>$this->Model->paginate($this->SqlPaginate),
+            "table"=>$this->Select["table"]
+        ];
+    }
+
+    public function Storage($request_all){
+        return $this->Table()::create($request_all);
+    }
+
+    public function Destroy($id,$foreign_keys=[]){
+        if (count($foreign_keys)>0){
+            foreach ($foreign_keys as $model => $column){
+                $model::where($column,$id)->delete();
+            }
+        }
+        return $this->Table()::where('id',$id)->delete();
+    }
+
+    public function pageView($view=null,$other=null){
+        $this->data["other"]=$other;
         return view($view,["data"=>$this->data]);
     }
 
