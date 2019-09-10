@@ -1,0 +1,1 @@
+# Laravel_dinamik_crud_yapisi
